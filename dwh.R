@@ -215,7 +215,7 @@ dwh_batchload <- function(data, dsn, table, batch_size = 100000,
   } #for
   
   # everything should be fastloaded
-  cat("done\n")
+  cat("done (total", nrow(data), "rows)\n")
 
   return(TRUE)
   
