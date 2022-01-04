@@ -160,3 +160,63 @@ dwh_fastload <- function(data, dsn, table, overwrite = FALSE, append = FALSE, ..
   DBI::dbDisconnect(con)
 
 } # dwh_fastload
+
+#============================================================================
+#  function: dwh_batchload
+#============================================================================
+#' write data to a DWH table by spliting into buckets
+#'
+#' write data fast to a DWH table using a ODBC connection
+#' Function uses packages DBI/odbc to write data faster than RODBC
+#' Connects, writes data and disconnects
+#'
+#' @param data dataframe
+#' @param dsn DSN string
+#' @param table table name (character string)
+#' @param batch_size max. rows to be added to table in one step
+#' @param timeout_sec max. time in sec. to wait until connected
+#' @param wait_between_sec sec. waiting between buckets
+#' @return status
+#' @examples
+#' \dontrun{
+#' dwh_batchload(data, "DWH", "database.table_test", batch_size = 1000)
+#' }
+#' @export
+
+dwh_batchload <- function(data, dsn, table, batch_size = 100000, 
+                          timeout_sec = 15, wait_between_sec = 1)  {
+
+  # cut into buckets
+  steps <- ceiling(nrow(data) / batch_size)
+  buckets <- cut(seq(1, nrow(data)), steps)
+  nr_buckets <- length(levels(buckets))
+  
+  # fastload first bucket
+  data2 <- data[buckets == levels(buckets)[1], ]
+  cat("fastloading part", 1, "of", nr_buckets, ":",nrow(data2), "rows\n")
+  dwh_fastload(data2, dsn, table, timeout = timeout_sec)
+  
+  # all observations in one bucket?
+  if (steps == 1) {return(TRUE)}
+  
+  # fastload rest of buckets
+  for (i in 2:length(levels(buckets))) {
+    
+    # wait a bit so that DWH is ready again
+    Sys.sleep(wait_between_sec)
+    
+    # fastload next bucket
+    data2 <- data[buckets == levels(buckets)[i], ]
+    cat("fastloading part", i, "of", nr_buckets, ":",nrow(data2), "rows\n")
+    dwh_fastload(data2, dsn, table, 
+                        append = TRUE,
+                        timeout = timeout_sec)
+    
+  } #for
+  
+  # everything should be fastloaded
+  cat("done\n")
+
+  return(TRUE)
+  
+} #dwh_batchload
