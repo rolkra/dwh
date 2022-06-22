@@ -9,6 +9,7 @@
 #' @param user user name
 #' @param pwd password of user
 #' @param pwd_crypt is password encryption used?
+#' @param timeout_sec timeout in sec for connecting with DWH
 #' @param ... Further arguments to be passed to DBI::dbConnect()
 #' @return connection
 #' @examples
@@ -17,7 +18,7 @@
 #' }
 #' @export
 
-dwh_connect <- function(dsn, user = NA, pwd = NA, pwd_crypt = FALSE, ...)  {
+dwh_connect <- function(dsn, user = NA, pwd = NA, pwd_crypt = FALSE, timeout_sec = 15, ...)  {
 
   if (is.na(user))  {
     # use single sign on
@@ -28,6 +29,7 @@ dwh_connect <- function(dsn, user = NA, pwd = NA, pwd_crypt = FALSE, ...)  {
     channel <- DBI::dbConnect(odbc::odbc(), dsn,
                               user = user,
                               password = if (pwd_crypt == TRUE) decrypt(pwd) else pwd,
+                              timeout = timeout_sec,
                               ...
     )
   } # if
@@ -128,6 +130,7 @@ dwh_read_data <- function(connection, sql, names_lower = TRUE, ...)  {
 #' @param table table name (character string)
 #' @param overwrite Overwrite table if already exist
 #' @param append Append data to table
+#' @param timeout_sec timeout in sec connecting to DWH
 #' @param ... Further arguments to be passed to DBI::dbConnect()
 #' @return status
 #' @examples
@@ -136,7 +139,7 @@ dwh_read_data <- function(connection, sql, names_lower = TRUE, ...)  {
 #' }
 #' @export
 
-dwh_fastload <- function(data, dsn, table, overwrite = FALSE, append = FALSE, ...)  {
+dwh_fastload <- function(data, dsn, table, overwrite = FALSE, append = FALSE, timeout_sec = 15, ...)  {
 
   # check table (must be 'database.table')
   # split string at '.'
@@ -151,7 +154,7 @@ dwh_fastload <- function(data, dsn, table, overwrite = FALSE, append = FALSE, ..
   stopifnot (nchar(database_name) > 0, nchar(table_name) > 0)
 
   # connect
-  con <- DBI::dbConnect(odbc::odbc(), dsn=dsn, database=database_name, ...)
+  con <- DBI::dbConnect(odbc::odbc(), dsn=dsn, database=database_name, timeout = timeout_sec, ...)
 
   # write data
   DBI::dbWriteTable(con, name=table_name, value=data, overwrite=overwrite, append=append)
